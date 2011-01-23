@@ -74,6 +74,162 @@ static void pyelf_elf_dealloc(struct pyelf_elf *self)
 	self->ob_type->tp_free((PyObject*)self);
 }
 
+static int get_id_byte(struct pyelf_elf *self, size_t ofs, uint8_t *byte)
+{
+	const char *id;
+	size_t sz;
+
+	id = elf_getident(self->elf, &sz);
+	if ( sz < ofs + 1 ) {
+		pyelf_error();
+		return 0;
+	}
+
+	*byte = id[ofs];
+	return 1;
+}
+
+static PyObject *pyelf_elf_data_get(struct pyelf_elf *self)
+{
+	char *str;
+	uint8_t data;
+
+	if ( !get_id_byte(self, EI_DATA, &data) )
+		return NULL;
+
+	switch(data) {
+	case ELFDATA2LSB:
+		str = "2's complement, little endian";
+		break;
+	case ELFDATA2MSB:
+		str = "2's complement, big endian";
+		break;
+	default:
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(str);
+}
+
+static PyObject *pyelf_elf_machine_get(struct pyelf_elf *self)
+{
+	GElf_Ehdr gehdr;
+	char *str;
+
+	if ( gelf_getehdr(self->elf, &gehdr) == NULL ) {
+		pyelf_error();
+		return NULL;
+	}
+
+	switch(gehdr.e_machine) {
+	case EM_386:
+		str = "Intel 80386";
+		break;
+	case EM_X86_64:
+		str = "Intel x86-64";
+		break;
+	case EM_PPC:
+		str = "IBM PowerPC";
+		break;
+	case EM_PPC64:
+		str = "IBM PowerPC 64";
+		break;
+	default:
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(str);
+}
+
+static PyObject *pyelf_elf_type_get(struct pyelf_elf *self)
+{
+	GElf_Ehdr gehdr;
+	char *str;
+
+	if ( gelf_getehdr(self->elf, &gehdr) == NULL ) {
+		pyelf_error();
+		return NULL;
+	}
+
+	switch(gehdr.e_type) {
+	case ET_REL:
+		str = "REL (Relocatable file)";
+		break;
+	case ET_EXEC:
+		str = "EXEC (Executable file)";
+		break;
+	case ET_DYN:
+		str = "DYN (Shared object file)";
+		break;
+	case ET_CORE:
+		str = "CORE (Core file)";
+		break;
+	default:
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(str);
+}
+
+static PyObject *pyelf_elf_osabi_get(struct pyelf_elf *self)
+{
+	char *str;
+	uint8_t osabi;
+
+	if ( !get_id_byte(self, EI_OSABI, &osabi) )
+		return NULL;
+
+	switch(osabi) {
+	case ELFOSABI_SYSV:
+		str = "UNIX - System V";
+		break;
+	case ELFOSABI_HPUX:
+		str = "HP/UX";
+		break;
+	case ELFOSABI_NETBSD:
+		str = "NetBSD";
+		break;
+	case ELFOSABI_LINUX:
+		str = "Linux";
+		break;
+	case ELFOSABI_SOLARIS:
+		str = "Solaris";
+		break;
+	case ELFOSABI_AIX:
+		str = "AIX";
+		break;
+	case ELFOSABI_IRIX:
+		str = "Irix";
+		break;
+	case ELFOSABI_FREEBSD:
+		str = "FreeBSD";
+		break;
+	case ELFOSABI_TRU64:
+		str = "Tru64";
+		break;
+	case ELFOSABI_MODESTO:
+		str = "Modesto";
+		break;
+	case ELFOSABI_OPENBSD:
+		str = "OpenBSD";
+		break;
+	case ELFOSABI_ARM:
+		str = "ARM";
+		break;
+	case ELFOSABI_STANDALONE:
+		str = "Standalone";
+		break;
+	default:
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(str);
+}
+
 static PyObject *pyelf_elf_file_get(struct pyelf_elf *self)
 {
 	Py_INCREF(self->file);
@@ -232,12 +388,16 @@ static PyMethodDef pyelf_elf_methods[] = {
 };
 
 static PyGetSetDef pyelf_elf_attribs[] = {
+	{"machine", (getter)pyelf_elf_machine_get, NULL, "Machine"},
+	{"osabi", (getter)pyelf_elf_osabi_get, NULL, "OS/ABI"},
+	{"type", (getter)pyelf_elf_type_get, NULL, "File type"},
 	{"file", (getter)pyelf_elf_file_get, NULL, "File class"},
+	{"data", (getter)pyelf_elf_data_get, NULL, "Data encoding"},
 	{"kind", (getter)pyelf_elf_kind_get, NULL, "File format"},
-	{"bits", (getter)pyelf_elf_bits_get, NULL, "File format"},
-	{"ehdr", (getter)pyelf_elf_ehdr_get, NULL, "File class"},
-	{"phdr", (getter)pyelf_elf_phdr_get, NULL, "File class"},
-	{"shdr", (getter)pyelf_elf_shdr_get, NULL, "File class"},
+	{"bits", (getter)pyelf_elf_bits_get, NULL, "Data class"},
+	{"ehdr", (getter)pyelf_elf_ehdr_get, NULL, "ELF header"},
+	{"phdr", (getter)pyelf_elf_phdr_get, NULL, "Program headers"},
+	{"shdr", (getter)pyelf_elf_shdr_get, NULL, "Section headers"},
 	{NULL, }
 };
 
@@ -258,6 +418,7 @@ static PyMethodDef methods[] = {
 	{NULL, }
 };
 
+#define PYELF_INT_CONST(m, c) PyModule_AddIntConstant(m, #c, c)
 PyMODINIT_FUNC initelf(void)
 {
 	PyObject *m;
@@ -293,4 +454,130 @@ PyMODINIT_FUNC initelf(void)
 	PyModule_AddObject(m, "ehdr", (PyObject *)&pyelf_ehdr_pytype);
 	PyModule_AddObject(m, "phdr", (PyObject *)&pyelf_phdr_pytype);
 	PyModule_AddObject(m, "shdr", (PyObject *)&pyelf_shdr_pytype);
+
+	PYELF_INT_CONST(m, EV_CURRENT);
+
+	PYELF_INT_CONST(m, EI_MAG0);
+	PYELF_INT_CONST(m, ELFMAG0);
+	PYELF_INT_CONST(m, EI_MAG1);
+	PYELF_INT_CONST(m, ELFMAG1);
+	PYELF_INT_CONST(m, EI_MAG2);
+	PYELF_INT_CONST(m, ELFMAG2);
+	PYELF_INT_CONST(m, EI_MAG3);
+	PYELF_INT_CONST(m, ELFMAG3);
+
+	PYELF_INT_CONST(m, EI_CLASS);
+	PYELF_INT_CONST(m, ELFCLASS32);
+	PYELF_INT_CONST(m, ELFCLASS64);
+
+	PYELF_INT_CONST(m, EI_DATA);
+	PYELF_INT_CONST(m, ELFDATA2LSB);
+	PYELF_INT_CONST(m, ELFDATA2MSB);
+
+	PYELF_INT_CONST(m, EI_VERSION);
+
+	PYELF_INT_CONST(m, EI_OSABI);
+	PYELF_INT_CONST(m, ELFOSABI_SYSV);
+	PYELF_INT_CONST(m, ELFOSABI_HPUX);
+	PYELF_INT_CONST(m, ELFOSABI_NETBSD);
+	PYELF_INT_CONST(m, ELFOSABI_LINUX);
+	PYELF_INT_CONST(m, ELFOSABI_SOLARIS);
+	PYELF_INT_CONST(m, ELFOSABI_AIX);
+	PYELF_INT_CONST(m, ELFOSABI_IRIX);
+	PYELF_INT_CONST(m, ELFOSABI_FREEBSD);
+	PYELF_INT_CONST(m, ELFOSABI_TRU64);
+	PYELF_INT_CONST(m, ELFOSABI_MODESTO);
+	PYELF_INT_CONST(m, ELFOSABI_OPENBSD);
+	PYELF_INT_CONST(m, ELFOSABI_ARM);
+	PYELF_INT_CONST(m, ELFOSABI_STANDALONE);
+
+	PYELF_INT_CONST(m, EI_ABIVERSION);
+	PYELF_INT_CONST(m, EI_PAD);
+
+	PYELF_INT_CONST(m, ET_REL);
+	PYELF_INT_CONST(m, ET_EXEC);
+	PYELF_INT_CONST(m, ET_DYN);
+	PYELF_INT_CONST(m, ET_CORE);
+	PYELF_INT_CONST(m, ET_LOOS);
+	PYELF_INT_CONST(m, ET_HIOS);
+	PYELF_INT_CONST(m, ET_LOPROC);
+	PYELF_INT_CONST(m, ET_HIPROC);
+
+	PYELF_INT_CONST(m, EM_M32);
+	PYELF_INT_CONST(m, EM_SPARC);
+	PYELF_INT_CONST(m, EM_386);
+	PYELF_INT_CONST(m, EM_68K);
+	PYELF_INT_CONST(m, EM_88K);
+	PYELF_INT_CONST(m, EM_860);
+	PYELF_INT_CONST(m, EM_MIPS);
+	PYELF_INT_CONST(m, EM_S370);
+	PYELF_INT_CONST(m, EM_MIPS_RS3_LE);
+
+	PYELF_INT_CONST(m, EM_PARISC);
+	PYELF_INT_CONST(m, EM_VPP500);
+	PYELF_INT_CONST(m, EM_SPARC32PLUS);
+	PYELF_INT_CONST(m, EM_960);
+	PYELF_INT_CONST(m, EM_PPC);
+	PYELF_INT_CONST(m, EM_PPC64);
+	PYELF_INT_CONST(m, EM_S390);
+
+	PYELF_INT_CONST(m, EM_V800);
+	PYELF_INT_CONST(m, EM_FR20);
+	PYELF_INT_CONST(m, EM_RH32);
+	PYELF_INT_CONST(m, EM_RCE);
+	PYELF_INT_CONST(m, EM_ARM);
+	PYELF_INT_CONST(m, EM_FAKE_ALPHA);
+	PYELF_INT_CONST(m, EM_SH);
+	PYELF_INT_CONST(m, EM_SPARCV9);
+	PYELF_INT_CONST(m, EM_TRICORE);
+	PYELF_INT_CONST(m, EM_ARC);
+	PYELF_INT_CONST(m, EM_H8_300);
+	PYELF_INT_CONST(m, EM_H8_300H);
+	PYELF_INT_CONST(m, EM_H8S);
+	PYELF_INT_CONST(m, EM_H8_500);
+	PYELF_INT_CONST(m, EM_IA_64);
+	PYELF_INT_CONST(m, EM_MIPS_X);
+	PYELF_INT_CONST(m, EM_COLDFIRE);
+	PYELF_INT_CONST(m, EM_68HC12);
+	PYELF_INT_CONST(m, EM_MMA);
+	PYELF_INT_CONST(m, EM_PCP);
+	PYELF_INT_CONST(m, EM_NCPU);
+	PYELF_INT_CONST(m, EM_NDR1);
+	PYELF_INT_CONST(m, EM_STARCORE);
+	PYELF_INT_CONST(m, EM_ME16);
+	PYELF_INT_CONST(m, EM_ST100);
+	PYELF_INT_CONST(m, EM_TINYJ);
+	PYELF_INT_CONST(m, EM_X86_64);
+	PYELF_INT_CONST(m, EM_PDSP);
+
+	PYELF_INT_CONST(m, EM_FX66);
+	PYELF_INT_CONST(m, EM_ST9PLUS);
+	PYELF_INT_CONST(m, EM_ST7);
+	PYELF_INT_CONST(m, EM_68HC16);
+	PYELF_INT_CONST(m, EM_68HC11);
+	PYELF_INT_CONST(m, EM_68HC08);
+	PYELF_INT_CONST(m, EM_68HC05);
+	PYELF_INT_CONST(m, EM_SVX);
+	PYELF_INT_CONST(m, EM_ST19);
+	PYELF_INT_CONST(m, EM_VAX);
+	PYELF_INT_CONST(m, EM_CRIS);
+	PYELF_INT_CONST(m, EM_JAVELIN);
+	PYELF_INT_CONST(m, EM_FIREPATH);
+	PYELF_INT_CONST(m, EM_ZSP);
+	PYELF_INT_CONST(m, EM_MMIX);
+	PYELF_INT_CONST(m, EM_HUANY);
+	PYELF_INT_CONST(m, EM_PRISM);
+	PYELF_INT_CONST(m, EM_AVR);
+	PYELF_INT_CONST(m, EM_FR30);
+	PYELF_INT_CONST(m, EM_D10V);
+	PYELF_INT_CONST(m, EM_D30V);
+	PYELF_INT_CONST(m, EM_V850);
+	PYELF_INT_CONST(m, EM_M32R);
+	PYELF_INT_CONST(m, EM_MN10300);
+	PYELF_INT_CONST(m, EM_MN10200);
+	PYELF_INT_CONST(m, EM_PJ);
+	PYELF_INT_CONST(m, EM_OPENRISC);
+	PYELF_INT_CONST(m, EM_ARC_A5);
+	PYELF_INT_CONST(m, EM_XTENSA);
+	PYELF_INT_CONST(m, EM_ALPHA);
 }
