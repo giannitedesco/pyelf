@@ -1,13 +1,11 @@
 /*
- * This file is part of ccid-utils
- * Copyright (c) 2008 Gianni Tedesco <gianni@scaramanga.co.uk>
+ * This file is part of pyelf
+ * Copyright (c) 2010 Gianni Tedesco <gianni@scaramanga.co.uk>
  * Released under the terms of the GNU GPL version 3
 */
 
-#include <Python.h>
-#include <elf.h>
-#include <gelf.h>
-#include <libelf.h>
+#include "py_elf.h"
+#include "pyelf_ehdr.h"
 
 /* Exception hierarchy */
 static PyObject *pyelf_err_base;
@@ -20,12 +18,6 @@ struct pyelf_elf {
 	Elf *elf;
 };
 
-struct pyelf_ehdr {
-	PyObject_HEAD;
-	GElf_Ehdr ehdr;
-};
-
-
 /* Generic functions */
 static void pyelf_error(void)
 {
@@ -35,47 +27,6 @@ static void pyelf_error(void)
 static PyObject *pyelf_bytearray(const char *ptr, size_t sz)
 {
 	return PyByteArray_FromStringAndSize(ptr, sz);
-}
-
-
-/* Elf Ehdrs */
-static PyMethodDef pyelf_ehdr_methods[] = {
-	{NULL, }
-};
-
-static PyGetSetDef pyelf_ehdr_attribs[] = {
-	{NULL, }
-};
-
-static void pyelf_ehdr_dealloc(struct pyelf_ehdr *self)
-{
-	self->ob_type->tp_free((PyObject*)self);
-	return;
-}
-
-static PyTypeObject pyelf_ehdr_pytype = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_name = "elf.ehdr",
-	.tp_basicsize = sizeof(struct pyelf_ehdr),
-	.tp_flags = Py_TPFLAGS_DEFAULT,
-	.tp_new = PyType_GenericNew,
-	.tp_dealloc = (destructor)pyelf_ehdr_dealloc,
-	.tp_methods = pyelf_ehdr_methods,
-	.tp_getset = pyelf_ehdr_attribs,
-	.tp_doc = "ELF header",
-};
-
-static PyObject *pyelf_ehdr_New(GElf_Ehdr *gehdr)
-{
-	struct pyelf_ehdr *ehdr;
-
-	ehdr = (struct pyelf_ehdr *)
-		pyelf_ehdr_pytype.tp_alloc(&pyelf_ehdr_pytype, 0);
-	if ( ehdr == NULL )
-		return NULL;
-	
-	memcpy(&ehdr->ehdr, gehdr, sizeof(ehdr->ehdr));
-	return (PyObject *)ehdr;
 }
 
 /* ELF files */
@@ -190,7 +141,7 @@ static PyGetSetDef pyelf_elf_attribs[] = {
 
 static PyTypeObject elf_pytype = {
 	PyObject_HEAD_INIT(NULL)
-	.tp_name = "elf.elf",
+	.tp_name = PACKAGE ".elf",
 	.tp_basicsize = sizeof(struct pyelf_elf),
 	.tp_flags = Py_TPFLAGS_DEFAULT,
 	.tp_new = PyType_GenericNew,
@@ -217,20 +168,19 @@ PyMODINIT_FUNC initelf(void)
 	if ( PyType_Ready(&pyelf_ehdr_pytype) < 0 )
 		return;
 
-	pyelf_err_base = PyErr_NewException("elf.Error",
+	pyelf_err_base = PyErr_NewException(PACKAGE ".Error",
 						PyExc_RuntimeError, NULL);
 	if ( NULL == pyelf_err_base )
 		return;
-	pyelf_err_fmt = PyErr_NewException("elf.FormatError",
+	pyelf_err_fmt = PyErr_NewException(PACKAGE ".FormatError",
 						pyelf_err_base, NULL);
 	if ( NULL == pyelf_err_fmt )
 		return;
 
-	m = Py_InitModule3("elf", methods, "ELF library");
+	m = Py_InitModule3(PACKAGE, methods, "ELF library");
 	if ( NULL == m )
 		return;
 
-	Py_INCREF(&elf_pytype);
 	PyModule_AddObject(m, "Error", pyelf_err_base);
 	PyModule_AddObject(m, "FormatError", pyelf_err_fmt);
 	PyModule_AddObject(m, "elf", (PyObject *)&elf_pytype);
