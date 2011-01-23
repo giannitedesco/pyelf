@@ -178,7 +178,50 @@ static PyObject *pyelf_elf_ehdr_get(struct pyelf_elf *self)
 	return pyelf_ehdr_New(&gehdr);
 }
 
+static PyObject *pyelf_elf_str(struct pyelf_elf *self, PyObject *args)
+{
+	size_t off, strtab;
+	PyObject *arg;
+	char *ret;
+
+	if ( !PyArg_ParseTuple(args, "O", &arg) )
+		return NULL;
+
+	/* Argh, overflows :( */
+	if ( PyInt_Check(arg) ) {
+		unsigned long l;
+		l = PyInt_AsUnsignedLongMask(arg);
+		off = l;
+	}else if ( PyLong_Check(arg) ) {
+		unsigned long long l;
+		l = PyLong_AsUnsignedLongLong(arg);
+		off = l;
+	}else if ( pyelf_shdr_Check(arg) ) {
+		struct pyelf_shdr *shdr = (struct pyelf_shdr *)arg;
+		off = shdr->shdr.sh_name;
+	}else{
+		PyErr_SetString(PyExc_TypeError,
+				"Expected integer or section header object");
+		return NULL;
+	}
+
+	if ( elf_getshdrstrndx(self->elf, &strtab) ) {
+		pyelf_error();
+		return NULL;
+	}
+
+	ret = elf_strptr(self->elf, strtab, off);
+	if ( NULL == ret || !strlen(ret) ) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(ret);
+}
+
 static PyMethodDef pyelf_elf_methods[] = {
+	{"str",(PyCFunction)pyelf_elf_str, METH_VARARGS,
+		"elf.str(shdr) - Get string from strtab"},
 	{NULL, }
 };
 

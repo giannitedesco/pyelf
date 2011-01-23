@@ -30,7 +30,7 @@ else
 CLEAN_DEP :=
 endif
 
-$(PYTHON_STAMP): $(CLEAN_DEP) $(IDL_OBJ)
+$(PYTHON_STAMP): $(CLEAN_DEP) $(IDL_OBJ) py_elf.[ch]
 	$(PYTHON) setup.py build -b $(PYTHON_BUILD_DIR)
 	$(TOUCH) $(PYTHON_STAMP)
 
