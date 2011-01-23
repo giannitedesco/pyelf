@@ -82,6 +82,7 @@ class Struct:
 		l.append('};')
 		l.append('extern PyTypeObject %s_pytype;'%(self.fullname))
 		l.append('PyObject *%s_New(%s *%s);'%(self.fullname, self.ctype, self.name))
+		l.append('int %s_Check(PyObject *obj);'%(self.fullname))
 		return '\n'.join(l) + '\n'
 
 	def defns(self):
@@ -114,6 +115,11 @@ class Struct:
 		l.append('\t.tp_getset = %s_attribs,'%self.fullname)
 		l.append('\t.tp_doc = "%s",'%self.doc)
 		l.append('};')
+		l.append('')
+		l.append('int %s_Check(PyObject *obj)'%(self.fullname))
+		l.append('{')
+		l.append('\treturn obj->ob_type == &%s_pytype;'%self.fullname)
+		l.append('}')
 		l.append('')
 		l.append('PyObject *%s_New(%s *%s)'%(self.fullname, self.ctype, self.name))
 		l.append('{')
