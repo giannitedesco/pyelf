@@ -11,7 +11,10 @@ RMDIR := rm -rf
 CFLAGS := -g -pipe -Os -Wall -Wsign-compare -Wcast-align -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wmissing-noreturn -finline-functions -Wmissing-format-attribute
 
 ALL_OBJ :=
-IDL_OBJ := pyelf_ehdr.c pyelf_ehdr.h
+IDL_OBJ := \
+	pyelf_ehdr.c pyelf_ehdr.h \
+	pyelf_phdr.c pyelf_phdr.h
+	
 ALL_BIN :=
 
 install:
@@ -24,6 +27,10 @@ python: $(IDL_OBJ)
 pyelf_ehdr.h: pyelf_ehdr.c
 pyelf_ehdr.c: pyelf_idl.py pyelf_ehdr.py
 	$(PYTHON) pyelf_ehdr.py
+
+pyelf_phdr.h: pyelf_phdr.c
+pyelf_phdr.c: pyelf_idl.py pyelf_phdr.py
+	$(PYTHON) pyelf_phdr.py
 
 %.o %.d: %.c
 	@echo " [C] $(patsubst .%.d, %.c, $@)"

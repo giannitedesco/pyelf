@@ -7,7 +7,13 @@ class Long(Field):
 	def __init__(self, name, **kw):
 		Field.__init__(self, name, **kw)
 	def get(self, ref):
-		return 'PyLong_FromLong(%s)'%ref
+		return 'PyLong_FromLongLong(%s)'%ref
+
+class ULong(Field):
+	def __init__(self, name, **kw):
+		Field.__init__(self, name, **kw)
+	def get(self, ref):
+		return 'PyLong_FromUnsignedLongLong(%s)'%ref
 
 class Int(Field):
 	def __init__(self, name):
@@ -20,7 +26,7 @@ class FixedBuffer(Field):
 		Field.__init__(self, name, **kw)
 		self.sz = sz
 	def get(self, ref):
-		return 'PyByteArray_FromStringAndSize(%s, %d)'%(ref, self.sz)
+		return 'PyByteArray_FromStringAndSize((const char *)%s, %d)'%(ref, self.sz)
 
 class Struct:
 	def __init__(self, ctype, name, modname = None, fields = [], doc = None):
@@ -87,7 +93,7 @@ class Struct:
 		l.append('\t{NULL, }')
 		l.append('};')
 		l.append('')
-		l.append('static void pyelf_ehdr_dealloc(struct %s *self)'%self.fullname)
+		l.append('static void %s_dealloc(struct %s *self)'%(self.fullname, self.fullname))
 		l.append('{')
 		l.append('\tself->ob_type->tp_free((PyObject*)self);')
 		l.append('}')

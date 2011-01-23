@@ -6,6 +6,7 @@
 
 #include "py_elf.h"
 #include "pyelf_ehdr.h"
+#include "pyelf_phdr.h"
 
 /* Exception hierarchy */
 static PyObject *pyelf_err_base;
@@ -22,11 +23,6 @@ struct pyelf_elf {
 static void pyelf_error(void)
 {
 	PyErr_SetString(PyExc_SystemError, elf_errmsg(elf_errno()));
-}
-
-static PyObject *pyelf_bytearray(const char *ptr, size_t sz)
-{
-	return PyByteArray_FromStringAndSize(ptr, sz);
 }
 
 /* ELF files */
@@ -101,6 +97,69 @@ static PyObject *pyelf_elf_bits_get(struct pyelf_elf *self)
 	return PyInt_FromLong(ret);
 }
 
+static PyObject *pyelf_elf_phdr_get(struct pyelf_elf *self)
+{
+	PyObject *list, *tmp;
+	GElf_Ehdr gehdr;
+	GElf_Phdr gphdr;
+	int i;
+
+	if ( gelf_getehdr(self->elf, &gehdr) == NULL ) {
+		pyelf_error();
+		return NULL;
+	}
+
+	list = PyList_New(gehdr.e_phnum);
+
+	for(i = 0; i < gehdr.e_phnum; i++) {
+		if ( gelf_getphdr(self->elf, i, &gphdr) == NULL )
+			goto err_free;
+		tmp = pyelf_phdr_New(&gphdr);
+		if ( NULL == tmp )
+			goto err_free;
+		PyList_SetItem(list, i, tmp);
+	}
+
+	return list;
+
+err_free:
+	pyelf_error();
+	Py_DECREF(list);
+	return NULL;
+}
+
+#if 0
+static PyObject *pyelf_elf_shdr_get(struct pyelf_elf *self)
+{
+	PyObject *list, *tmp;
+	GElf_Shdr gshdr;
+	size_t i, num;
+
+	if ( elf_getshdrnum(self->elf, &num) ) {
+		pyelf_error();
+		return NULL;
+	}
+
+	list = PyList_New(num);
+
+	for(i = 0; i < num; i++) {
+		if ( gelf_getshdr(self->elf, i, &gshdr) == NULL )
+			goto err_free;
+		tmp = pyelf_shdr_New(&gshdr);
+		if ( NULL == tmp )
+			goto err_free;
+		PyList_SetItem(list, i, tmp);
+	}
+
+	return list;
+
+err_free:
+	pyelf_error();
+	Py_DECREF(list);
+	return NULL;
+}
+#endif
+
 static PyObject *pyelf_elf_ehdr_get(struct pyelf_elf *self)
 {
 	GElf_Ehdr gehdr;
@@ -113,20 +172,6 @@ static PyObject *pyelf_elf_ehdr_get(struct pyelf_elf *self)
 	return pyelf_ehdr_New(&gehdr);
 }
 
-static PyObject *pyelf_elf_ident_get(struct pyelf_elf *self)
-{
-	char *id;
-	size_t sz;
-
-	id = elf_getident(self->elf, &sz);
-	if ( NULL == id ) {
-		pyelf_error();
-		return NULL;
-	}
-
-	return pyelf_bytearray(id, sz);
-}
-
 static PyMethodDef pyelf_elf_methods[] = {
 	{NULL, }
 };
@@ -135,7 +180,8 @@ static PyGetSetDef pyelf_elf_attribs[] = {
 	{"kind", (getter)pyelf_elf_kind_get, NULL, "File format"},
 	{"bits", (getter)pyelf_elf_bits_get, NULL, "File format"},
 	{"ehdr", (getter)pyelf_elf_ehdr_get, NULL, "File class"},
-	{"ident", (getter)pyelf_elf_ident_get, NULL, "File class"},
+	{"phdr", (getter)pyelf_elf_phdr_get, NULL, "File class"},
+	//{"shdr", (getter)pyelf_elf_shdr_get, NULL, "File class"},
 	{NULL, }
 };
 
@@ -167,6 +213,8 @@ PyMODINIT_FUNC initelf(void)
 		return;
 	if ( PyType_Ready(&pyelf_ehdr_pytype) < 0 )
 		return;
+	if ( PyType_Ready(&pyelf_phdr_pytype) < 0 )
+		return;
 
 	pyelf_err_base = PyErr_NewException(PACKAGE ".Error",
 						PyExc_RuntimeError, NULL);
@@ -185,4 +233,5 @@ PyMODINIT_FUNC initelf(void)
 	PyModule_AddObject(m, "FormatError", pyelf_err_fmt);
 	PyModule_AddObject(m, "elf", (PyObject *)&elf_pytype);
 	PyModule_AddObject(m, "ehdr", (PyObject *)&pyelf_ehdr_pytype);
+	PyModule_AddObject(m, "phdr", (PyObject *)&pyelf_phdr_pytype);
 }
