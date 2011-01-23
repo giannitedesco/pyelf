@@ -1,19 +1,26 @@
 class Field:
-	def __init__(self, name):
+	def __init__(self, name, **kw):
 		self.name = name
+		self.doc = kw.get('doc', self.name)
 
 class Long(Field):
-	def __init__(self, name):
-		Field.__init__(self, name)
+	def __init__(self, name, **kw):
+		Field.__init__(self, name, **kw)
+	def get(self, ref):
+		return 'PyLong_FromLong(%s)'%ref
 
 class Int(Field):
 	def __init__(self, name):
-		Field.__init__(self, name)
+		Field.__init__(self, name, **kw)
+	def get(self, ref):
+		return 'PyInt_FromLong(%s)'%ref
 
 class FixedBuffer(Field):
-	def __init__(self, name, sz):
-		Field.__init__(self, name)
+	def __init__(self, name, sz, **kw):
+		Field.__init__(self, name, **kw)
 		self.sz = sz
+	def get(self, ref):
+		return 'PyByteArray_FromStringAndSize(%s, %d)'%(ref, self.sz)
 
 class Struct:
 	def __init__(self, ctype, name, modname = None, fields = [], doc = None):
@@ -42,6 +49,20 @@ class Struct:
 			return d[attr]()
 		raise AttributeError
 
+	def __getset(self, f):
+		return '{"%s", (getter)%s__%s_get, NULL, "%s"},'%(f.name,
+							self.fullname,
+							f.name, f.doc)
+
+	def __getter(self, f):
+		l = []
+		l.append('static PyObject *%s__%s_get(struct %s *self)'%(self.fullname,
+							f.name, self.fullname))
+		l.append('{')
+		l.append('\treturn ' + f.get('self->%s.%s'%(self.name, f.name)) + ';')
+		l.append('}')
+		return '\n'.join(l) + '\n'
+
 	def decls(self):
 		l = []
 		l.append('struct %s {'%self.fullname)
@@ -58,9 +79,11 @@ class Struct:
 		l.append('\t{NULL, }')
 		l.append('};')
 		l.append('')
+		for f in self.fields:
+			l.append(self.__getter(f))
 		l.append('static PyGetSetDef %s_attribs[] = {'%self.fullname)
 		for f in self.fields:
-			l.append('\t /* %s */'%f.name)
+			l.append('\t' + self.__getset(f))
 		l.append('\t{NULL, }')
 		l.append('};')
 		l.append('')
@@ -91,7 +114,7 @@ class Struct:
 		l.append('\tmemcpy(&self->%s, %s, sizeof(self->%s));'%(self.name, self.name, self.name))
 		l.append('\treturn (PyObject *)self;')
 		l.append('}')
-		return '\n'.join(l) + '\n'
+		return '\n'.join(l)
 
 class CFiles:
 	def __init__(self, name, structs):
