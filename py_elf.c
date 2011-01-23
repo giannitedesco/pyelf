@@ -524,7 +524,7 @@ static PyObject *pyelf_elf_data(struct pyelf_elf *self, PyObject *args)
 		if ( gshdr.sh_offset == off ) {
 			Elf_Data *raw;
 
-			raw = elf_data(scn, NULL);
+			raw = elf_getdata(scn, NULL);
 			if ( NULL == raw ) {
 				pyelf_error();
 				return NULL;
