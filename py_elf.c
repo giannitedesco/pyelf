@@ -74,6 +74,12 @@ static void pyelf_elf_dealloc(struct pyelf_elf *self)
 	self->ob_type->tp_free((PyObject*)self);
 }
 
+static PyObject *pyelf_elf_file_get(struct pyelf_elf *self)
+{
+	Py_INCREF(self->file);
+	return self->file;
+}
+
 static PyObject *pyelf_elf_kind_get(struct pyelf_elf *self)
 {
 	return PyInt_FromLong(elf_kind(self->elf));
@@ -226,6 +232,7 @@ static PyMethodDef pyelf_elf_methods[] = {
 };
 
 static PyGetSetDef pyelf_elf_attribs[] = {
+	{"file", (getter)pyelf_elf_file_get, NULL, "File class"},
 	{"kind", (getter)pyelf_elf_kind_get, NULL, "File format"},
 	{"bits", (getter)pyelf_elf_bits_get, NULL, "File format"},
 	{"ehdr", (getter)pyelf_elf_ehdr_get, NULL, "File class"},
