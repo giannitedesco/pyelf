@@ -2,7 +2,7 @@ from distutils.core import setup, Extension
 
 incs = ['.']
 
-elf = Extension('elf', ['py_elf.c', 'pyelf_ehdr.c', 'pyelf_phdr.c'],
+elf = Extension('elf', ['py_elf.c', 'pyelf_ehdr.c', 'pyelf_phdr.c', 'pyelf_shdr.c'],
 		libraries=['elf'],
 		include_dirs = incs)
 

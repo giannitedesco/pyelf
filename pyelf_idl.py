@@ -29,12 +29,13 @@ class FixedBuffer(Field):
 		return 'PyByteArray_FromStringAndSize((const char *)%s, %d)'%(ref, self.sz)
 
 class Struct:
-	def __init__(self, ctype, name, modname = None, fields = [], doc = None):
+	def __init__(self, ctype, name, modname = None, fields = [], doc = None, byref = False):
 		self.ctype = ctype
 		self.name = name
 		self.fields = fields
 		self.modname = modname
 		self.doc = doc
+		self.byref = byref
 
 	def __get_fullname(self):
 		if self.modname is None:
@@ -48,8 +49,12 @@ class Struct:
 		else:
 			return self.doc
 
+	def __get_deref(self):
+		return self.name + (self.byref and '->' or '.')
+
 	def __getattr__(self, attr):
 		d = {'fullname': self.__get_fullname, 
+			'deref': self.__get_deref,
 			'doc': self.__get_doc}
 		if d.has_key(attr):
 			return d[attr]()
@@ -65,7 +70,7 @@ class Struct:
 		l.append('static PyObject *%s__%s_get(struct %s *self)'%(self.fullname,
 							f.name, self.fullname))
 		l.append('{')
-		l.append('\treturn ' + f.get('self->%s.%s'%(self.name, f.name)) + ';')
+		l.append('\treturn ' + f.get('self->%s%s'%(self.deref, f.name)) + ';')
 		l.append('}')
 		return '\n'.join(l) + '\n'
 

@@ -1,3 +1,4 @@
 *.pyc
 python/
-pyelf_[eph]hdr.[ch]
+python-stamp
+pyelf_[epsh]hdr.[ch]
