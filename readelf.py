@@ -8,7 +8,7 @@ def do_file(f):
 
 	ehdr = e.ehdr
 	print 'ELF Header:'
-	print '  Magic: %s'%(' '.join(map(lambda x:'%.2x'%x, ehdr.e_ident)))
+	print '  Magic:    %s'%(' '.join(map(lambda x:'%.2x'%x, ehdr.e_ident)))
 	print '  Class:                        ELF%d'%e.bits
 	print '  Data:                         %s'%e.data
 	print '  Version:                      %d'%ehdr.e_ident[elf.EI_VERSION]
@@ -25,7 +25,9 @@ def do_file(f):
 		name = e.str(s)
 		if name is None:
 			name = ''
-		t = 'NULL'
+		t = s.type
+		if t is None:
+			t = '0x%x'%s.sh_type
 		print '  [%2d] %s %s %08x %06x %06x ,,,'%(i,
 							name.ljust(17),
 							t.ljust(15),
@@ -46,7 +48,6 @@ def do_file(f):
 	print
 
 def main(argv):
-	print 'Invoked as %s'%argv[0]
 	for fn in argv[1:]:
 		try:
 			do_file(file(fn, 'r'))

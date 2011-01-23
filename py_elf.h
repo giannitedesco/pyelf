@@ -14,4 +14,8 @@
 
 #define PACKAGE "elf"
 
+/* Synthetic members of IDL-wrapped structs */
+struct pyelf_shdr;
+PyObject *pyelf_shdr_type_get(struct pyelf_shdr *self);
+
 #endif /* _PY_ELF_H */

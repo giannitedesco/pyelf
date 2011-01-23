@@ -26,6 +26,61 @@ static void pyelf_error(void)
 	PyErr_SetString(PyExc_SystemError, elf_errmsg(elf_errno()));
 }
 
+PyObject *pyelf_shdr_type_get(struct pyelf_shdr *self)
+{
+	const char *str;
+
+	switch(self->shdr.sh_type) {
+	case SHT_NULL:
+		str = "NULL";
+		break;
+	case SHT_PROGBITS:
+		str = "PROGBITS";
+		break;
+	case SHT_SYMTAB:
+		str = "SYMTAB";
+		break;
+	case SHT_STRTAB:
+		str = "STRTAB";
+		break;
+	case SHT_RELA:
+		str = "RELA";
+		break;
+	case SHT_HASH:
+		str = "HASH";
+		break;
+	case SHT_DYNAMIC:
+		str = "DYNAMIC";
+		break;
+	case SHT_NOTE:
+		str = "NOTE";
+		break;
+	case SHT_NOBITS:
+		str = "NOBITS";
+		break;
+	case SHT_REL:
+		str = "REL";
+		break;
+	case SHT_SHLIB:
+		str = "SHLIB";
+		break;
+	case SHT_DYNSYM:
+		str = "DYNSYM";
+		break;
+	case SHT_INIT_ARRAY:
+		str = "INIT";
+		break;
+	case SHT_FINI_ARRAY:
+		str = "FINI";
+		break;
+	default:
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyString_FromString(str);
+}
+
 /* ELF files */
 static int pyelf_elf_init(struct pyelf_elf *self, PyObject *args, PyObject *kwds)
 {
@@ -580,4 +635,34 @@ PyMODINIT_FUNC initelf(void)
 	PYELF_INT_CONST(m, EM_ARC_A5);
 	PYELF_INT_CONST(m, EM_XTENSA);
 	PYELF_INT_CONST(m, EM_ALPHA);
+
+	PYELF_INT_CONST(m, SHT_NULL);
+	PYELF_INT_CONST(m, SHT_PROGBITS);
+	PYELF_INT_CONST(m, SHT_SYMTAB);
+	PYELF_INT_CONST(m, SHT_STRTAB);
+	PYELF_INT_CONST(m, SHT_RELA);
+	PYELF_INT_CONST(m, SHT_HASH);
+	PYELF_INT_CONST(m, SHT_DYNAMIC);
+	PYELF_INT_CONST(m, SHT_NOTE);
+	PYELF_INT_CONST(m, SHT_NOBITS);
+	PYELF_INT_CONST(m, SHT_REL);
+	PYELF_INT_CONST(m, SHT_SHLIB);
+	PYELF_INT_CONST(m, SHT_DYNSYM);
+	PYELF_INT_CONST(m, SHT_INIT_ARRAY);
+	PYELF_INT_CONST(m, SHT_FINI_ARRAY);
+	PYELF_INT_CONST(m, SHT_PREINIT_ARRAY);
+	PYELF_INT_CONST(m, SHT_GROUP);
+	PYELF_INT_CONST(m, SHT_SYMTAB_SHNDX);
+	PYELF_INT_CONST(m, SHT_LOOS);
+	PYELF_INT_CONST(m, SHT_GNU_ATTRIBUTES);
+	PYELF_INT_CONST(m, SHT_GNU_HASH);
+	PYELF_INT_CONST(m, SHT_GNU_LIBLIST);
+	PYELF_INT_CONST(m, SHT_CHECKSUM);
+	PYELF_INT_CONST(m, SHT_LOSUNW);
+	PYELF_INT_CONST(m, SHT_SUNW_move);
+	PYELF_INT_CONST(m, SHT_SUNW_COMDAT);
+	PYELF_INT_CONST(m, SHT_SUNW_syminfo);
+	PYELF_INT_CONST(m, SHT_GNU_verdef);
+	PYELF_INT_CONST(m, SHT_GNU_verneed);
+	PYELF_INT_CONST(m, SHT_GNU_versym);
 }

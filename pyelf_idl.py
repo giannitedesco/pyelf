@@ -28,6 +28,10 @@ class FixedBuffer(Field):
 	def get(self, ref):
 		return 'PyByteArray_FromStringAndSize((const char *)%s, %d)'%(ref, self.sz)
 
+class Synthetic(Field):
+	def __init__(self, name, **kw):
+		Field.__init__(self, name, **kw)
+
 class Struct:
 	def __init__(self, ctype, name, modname = None, fields = [], doc = None, byref = False):
 		self.ctype = ctype
@@ -65,6 +69,11 @@ class Struct:
 							self.fullname,
 							f.name, f.doc)
 
+	def __getset_s(self, f):
+		return '{"%s", (getter)%s_%s_get, NULL, "%s"},'%(f.name,
+							self.fullname,
+							f.name, f.doc)
+
 	def __getter(self, f):
 		l = []
 		l.append('static PyObject *%s__%s_get(struct %s *self)'%(self.fullname,
@@ -91,11 +100,14 @@ class Struct:
 		l.append('\t{NULL, }')
 		l.append('};')
 		l.append('')
-		for f in self.fields:
+		for f in filter(lambda f:not isinstance(f, Synthetic), self.fields):
 			l.append(self.__getter(f))
 		l.append('static PyGetSetDef %s_attribs[] = {'%self.fullname)
 		for f in self.fields:
-			l.append('\t' + self.__getset(f))
+			if isinstance(f, Synthetic):
+				l.append('\t' + self.__getset_s(f))
+			else:
+				l.append('\t' + self.__getset(f))
 		l.append('\t{NULL, }')
 		l.append('};')
 		l.append('')
