@@ -34,7 +34,10 @@ def do_file(f):
 							s.sh_addr,
 							s.sh_offset,
 							s.sh_size)
+		#print ' '.join(map(lambda x:'%.2x'%x, (e.rawdata(s))))
+		#print '%r'%e.rawdata(s)
 		i += 1
+
 
 	print """Key to Flags:
   W (write), A (alloc), X (execute), M (merge), S (strings)

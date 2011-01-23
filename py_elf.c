@@ -89,7 +89,7 @@ static int pyelf_elf_init(struct pyelf_elf *self, PyObject *args, PyObject *kwds
 
 	if ( !PyArg_ParseTuple(args, "O", &file) )
 		return -1;
-	
+
 	if ( !PyFile_Check(file) ) {
 		PyErr_SetString(PyExc_TypeError, "Expected file object");
 		return -1;
@@ -395,6 +395,29 @@ static PyObject *pyelf_elf_ehdr_get(struct pyelf_elf *self)
 	return pyelf_ehdr_New(&gehdr);
 }
 
+static int pyelf_name_from_pyobj(PyObject *arg, size_t *off)
+{
+	/* Argh, overflows :( */
+	if ( PyInt_Check(arg) ) {
+		unsigned long l;
+		l = PyInt_AsUnsignedLongMask(arg);
+		*off = l;
+	}else if ( PyLong_Check(arg) ) {
+		unsigned long long l;
+		l = PyLong_AsUnsignedLongLong(arg);
+		*off = l;
+	}else if ( pyelf_shdr_Check(arg) ) {
+		struct pyelf_shdr *shdr = (struct pyelf_shdr *)arg;
+		*off = shdr->shdr.sh_name;
+	}else{
+		PyErr_SetString(PyExc_TypeError,
+				"Expected integer or section header object");
+		return 0;
+	}
+
+	return 1;
+}
+
 static PyObject *pyelf_elf_str(struct pyelf_elf *self, PyObject *args)
 {
 	size_t off, strtab;
@@ -404,23 +427,8 @@ static PyObject *pyelf_elf_str(struct pyelf_elf *self, PyObject *args)
 	if ( !PyArg_ParseTuple(args, "O", &arg) )
 		return NULL;
 
-	/* Argh, overflows :( */
-	if ( PyInt_Check(arg) ) {
-		unsigned long l;
-		l = PyInt_AsUnsignedLongMask(arg);
-		off = l;
-	}else if ( PyLong_Check(arg) ) {
-		unsigned long long l;
-		l = PyLong_AsUnsignedLongLong(arg);
-		off = l;
-	}else if ( pyelf_shdr_Check(arg) ) {
-		struct pyelf_shdr *shdr = (struct pyelf_shdr *)arg;
-		off = shdr->shdr.sh_name;
-	}else{
-		PyErr_SetString(PyExc_TypeError,
-				"Expected integer or section header object");
+	if ( !pyelf_name_from_pyobj(arg, &off) )
 		return NULL;
-	}
 
 	if ( elf_getshdrstrndx(self->elf, &strtab) ) {
 		pyelf_error();
@@ -436,7 +444,106 @@ static PyObject *pyelf_elf_str(struct pyelf_elf *self, PyObject *args)
 	return PyString_FromString(ret);
 }
 
+static int pyelf_off_from_pyobj(PyObject *arg, size_t *off)
+{
+	/* Argh, overflows :( */
+	if ( PyInt_Check(arg) ) {
+		unsigned long l;
+		l = PyInt_AsUnsignedLongMask(arg);
+		*off = l;
+	}else if ( PyLong_Check(arg) ) {
+		unsigned long long l;
+		l = PyLong_AsUnsignedLongLong(arg);
+		*off = l;
+	}else if ( pyelf_shdr_Check(arg) ) {
+		struct pyelf_shdr *shdr = (struct pyelf_shdr *)arg;
+		*off = shdr->shdr.sh_offset;
+	}else{
+		PyErr_SetString(PyExc_TypeError,
+				"Expected integer or section header object");
+		return 0;
+	}
+
+	return 1;
+}
+
+static PyObject *pyelf_elf_rawdata(struct pyelf_elf *self, PyObject *args)
+{
+	size_t off;
+	Elf_Scn *scn;
+	PyObject *arg;
+
+	if ( !PyArg_ParseTuple(args, "O", &arg) )
+		return NULL;
+
+	if ( !pyelf_off_from_pyobj(arg, &off) )
+		return NULL;
+
+	for(scn = NULL; (scn = elf_nextscn(self->elf, scn)); ) {
+		GElf_Shdr gshdr;
+		if ( gelf_getshdr(scn, &gshdr) == NULL )
+			continue;
+		if ( !gshdr.sh_size || !gshdr.sh_offset )
+			continue;
+		if ( gshdr.sh_offset == off ) {
+			Elf_Data *raw;
+
+			raw = elf_rawdata(scn, NULL);
+			if ( NULL == raw ) {
+				pyelf_error();
+				return NULL;
+			}
+
+			return PyByteArray_FromStringAndSize(raw->d_buf,
+								raw->d_size);
+		}
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *pyelf_elf_data(struct pyelf_elf *self, PyObject *args)
+{
+	size_t off;
+	Elf_Scn *scn;
+	PyObject *arg;
+
+	if ( !PyArg_ParseTuple(args, "O", &arg) )
+		return NULL;
+
+	if ( !pyelf_off_from_pyobj(arg, &off) )
+		return NULL;
+
+	for(scn = NULL; (scn = elf_nextscn(self->elf, scn)); ) {
+		GElf_Shdr gshdr;
+		if ( gelf_getshdr(scn, &gshdr) == NULL )
+			continue;
+		if ( !gshdr.sh_size || !gshdr.sh_offset )
+			continue;
+		if ( gshdr.sh_offset == off ) {
+			Elf_Data *raw;
+
+			raw = elf_rawdata(scn, NULL);
+			if ( NULL == raw ) {
+				pyelf_error();
+				return NULL;
+			}
+
+			return PyByteArray_FromStringAndSize(raw->d_buf,
+								raw->d_size);
+		}
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 static PyMethodDef pyelf_elf_methods[] = {
+	{"rawdata",(PyCFunction)pyelf_elf_rawdata, METH_VARARGS,
+		"elf.rawdata(shdr) - Get raw file data"},
+	{"data",(PyCFunction)pyelf_elf_data, METH_VARARGS,
+		"elf.data(shdr) - Get translated file data"},
 	{"str",(PyCFunction)pyelf_elf_str, METH_VARARGS,
 		"elf.str(shdr) - Get string from strtab"},
 	{NULL, }
